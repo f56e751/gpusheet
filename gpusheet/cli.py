@@ -280,13 +280,20 @@ def cmd_mine(a):
 # ======================================================================= 명령: 예약·해제
 def confirm(plan, yes):
     print(plan, flush=True)
+    need = "사용자 확인이 필요합니다. 사용자에게 확인받은 뒤 --yes 를 붙여 다시 실행하세요."
     if yes:
         return
-    if sys.stdin.isatty():
-        if input("진행할까요? [y/N] ").strip().lower() in ("y", "yes", "ㅇ"):
+    # 사람이 터미널 앞에 있을 때만 묻는다. AI 에이전트는 출력을 가로채므로 stdout 이 터미널이 아니다.
+    # (Windows 는 입력이 NUL 이어도 stdin.isatty() 가 참이라 stdout 까지 함께 본다)
+    if sys.stdin.isatty() and sys.stdout.isatty():
+        try:
+            answer = input("진행할까요? [y/N] ")
+        except EOFError:
+            die(need, 3)
+        if answer.strip().lower() in ("y", "yes", "ㅇ"):
             return
         die("취소했습니다.")
-    die("사용자 확인이 필요합니다. 사용자에게 확인받은 뒤 --yes 를 붙여 다시 실행하세요.", 3)
+    die(need, 3)
 
 
 def put(device_id, date, user):
