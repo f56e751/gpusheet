@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gpusheet"
+version = "0.1.0"
+description = "공유 GPU 예약 시트를 터미널과 AI 코딩 에이전트(Claude Code, Codex)에서 쓰기 위한 CLI"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+dependencies = []
+
+[project.scripts]
+gpusheet = "gpusheet.cli:main"
+
+[tool.setuptools]
+packages = ["gpusheet"]
+
+[tool.setuptools.package-data]
+gpusheet = ["assets/*.md"]

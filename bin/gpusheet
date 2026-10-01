@@ -1,0 +1,9 @@
+#!/usr/bin/env python3
+# 저장소를 clone 한 채로 실행할 때 쓰는 진입점 (pip 설치 없이). /usr/local/bin 에 심볼릭 링크로 걸어 쓴다.
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+from gpusheet.cli import main  # noqa: E402
+
+main()
