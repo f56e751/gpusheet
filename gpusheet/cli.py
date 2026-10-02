@@ -6,7 +6,9 @@
   gpusheet mine [--json]                         내 예약
   gpusheet reserve <서버:번호>... [--tmr] [--yes]  예약
   gpusheet release <서버:번호>... [--tmr] | --all  해제 (내 예약만)
-  gpusheet setup [--name 이름] [--url URL]       처음 한 번: 이름 등록 + Claude/Codex 규칙 설치
+  gpusheet servers [--json]                      서버 목록 (IP·SSH 접속 명령·GPU 구성)
+  gpusheet setup [--name 이름] [--url URL] [--ssh-user 계정]
+                                                처음 한 번: 이름 등록 + Claude/Codex 규칙 설치
   gpusheet guide                                 AI 에이전트용 사용 규칙 출력
 
 서버 표기: server12:1 · gpu12:1 · 12:1 은 모두 같다 (12번 서버의 1번 GPU).
@@ -174,8 +176,9 @@ def rows(data):
     out = []
     for alias in sorted(data, key=alias_num):
         gpus = data[alias].get("gpu") or {}
+        host = data[alias].get("ip") or None      # SSH 접속 주소 (시트 서버가 알려 줌 — 코드에는 없음)
         if not gpus:
-            out.append({"gpu": f"{alias}:-", "server": alias, "index": None, "state": "DOWN"})
+            out.append({"gpu": f"{alias}:-", "server": alias, "host": host, "index": None, "state": "DOWN"})
             continue
         for idx in sorted(gpus, key=int):
             g = gpus[idx]
@@ -188,7 +191,7 @@ def rows(data):
             else:
                 state = "IN_USE_UNRESERVED" if busy else "FREE"
             out.append({
-                "gpu": f"{alias}:{idx}", "server": alias, "index": int(idx),
+                "gpu": f"{alias}:{idx}", "server": alias, "host": host, "index": int(idx),
                 "model": re.sub(r"NVIDIA (GeForce )?", "", g.get("name") or "?"),
                 "mem_used_gb": round(mem / 1024, 1), "mem_total_gb": round((g.get("memory_total") or 0) / 1024),
                 "util_pct": util, "temp_c": g.get("temperature"),
@@ -253,6 +256,36 @@ def cmd_free(a):
         return print("조건에 맞는 빈 GPU 가 없습니다. (`gpusheet status` 로 전체 현황 확인)")
     print_rows(rs)
     print(f"\n{len(rs)}장 사용 가능. 예약 예: gpusheet reserve {rs[0]['gpu']}")
+
+
+def ssh_user(data):
+    """SSH 계정: GPUSHEET_SSH_USER → setup --ssh-user → 연구실 서버에서 실행 중이면 지금 계정 → 모름(None)."""
+    u = os.environ.get("GPUSHEET_SSH_USER") or read_user_conf().get("ssh_user")
+    if u:
+        return u
+    return getpass.getuser() if local_alias(data) else None   # 노트북 계정명은 서버 계정과 다를 수 있다
+
+
+def ssh_cmd(host, user):
+    return f"ssh {user or '<서버계정>'}@{host}" if host else None
+
+
+def cmd_servers(a):
+    data = fetch()
+    user = ssh_user(data)
+    out = []
+    for alias in sorted(data, key=alias_num):
+        blk = data[alias]
+        gpus = blk.get("gpu") or {}
+        models = [re.sub(r"NVIDIA (GeForce )?", "", g.get("name") or "?") for _, g in sorted(gpus.items(), key=lambda x: int(x[0]))]
+        out.append({"server": alias, "host": blk.get("ip") or None, "up": bool(gpus), "gpus": models,
+                    "ssh": ssh_cmd(blk.get("ip"), user)})
+    if a.json:
+        return emit(out)
+    table(["서버", "주소", "GPU", "SSH 접속"],
+          [[o["server"], o["host"] or "-", " + ".join(o["gpus"]) if o["up"] else "(응답 없음)", o["ssh"] or "-"] for o in out])
+    if not user:
+        print("\n<서버계정> 은 본인 서버 계정입니다. `gpusheet setup --ssh-user 계정` 으로 등록하면 채워집니다.")
 
 
 def my_reservations(data, name):
@@ -329,10 +362,17 @@ def cmd_reserve(a):
     if not ok:
         sys.exit(1)
     here = local_alias(data)
-    idxs = [d.rpartition("_")[2] for d in ok if here and d.startswith(here + "_")]
-    if idxs and date == "today":
-        print("\n이 서버에서 쓰려면:\n  export CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=" + ",".join(idxs))
-        print("  (CUDA_DEVICE_ORDER=PCI_BUS_ID 가 없으면 CUDA 번호가 시트 번호와 달라질 수 있습니다)")
+    by_server = {}
+    for d in ok:
+        alias, _, idx = d.rpartition("_")
+        by_server.setdefault(alias, []).append(idx)
+    for alias, idxs in by_server.items():
+        if alias == here:
+            print("\n이 서버에서 쓰려면:")
+        else:   # 다른 서버면 접속 명령까지 (주소는 시트 서버가 알려 준 값)
+            print(f"\n{alias} 에서 쓰려면:  {ssh_cmd(data[alias].get('ip'), ssh_user(data)) or '(주소 모름: gpusheet servers)'}")
+        print("  export CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=" + ",".join(idxs))
+    print("  (CUDA_DEVICE_ORDER=PCI_BUS_ID 가 없으면 CUDA 번호가 시트 번호와 달라질 수 있습니다)")
     print("1시간 넘게 GPU 를 안 쓰면 예약이 자동 해제됩니다. 다 쓰면 `gpusheet release` 로 풀어 주세요.")
     sys.exit(0 if len(ok) == len(devs) else 1)
 
@@ -426,6 +466,8 @@ def cmd_setup(a):
         hint = f" 혹시: {', '.join(close)}?" if close else ""
         die(f"'{name}' 은(는) 연구실 명단에 없습니다.{hint}  처음 쓰는 이름이 맞으면 --force 를 붙이세요.")
     conf.update({"name": name})
+    if a.ssh_user:
+        conf["ssh_user"] = a.ssh_user
     if a.url:
         conf["url"] = url
     os.makedirs(os.path.dirname(USER_CONF), exist_ok=True)
@@ -461,8 +503,10 @@ def main(argv=None):
     s = sub.add_parser("release", help="예약 해제 (내 것만)"); s.add_argument("gpus", nargs="*", help="12:1 형식")
     s.add_argument("--tmr", action="store_true", help="내일 칸"); s.add_argument("--all", action="store_true", help="내 예약 전부")
     s.set_defaults(fn=cmd_release)
+    s = sub.add_parser("servers", help="서버 목록 (IP·SSH 접속 명령)"); s.add_argument("--json", action="store_true"); s.set_defaults(fn=cmd_servers)
     s = sub.add_parser("setup", help="이름 등록 + Claude/Codex 규칙 설치")
     s.add_argument("--name"); s.add_argument("--url"); s.add_argument("--force", action="store_true", help="명단에 없는 이름도 등록")
+    s.add_argument("--ssh-user", help="서버 접속 계정 (노트북에서 쓸 때. 서버에서는 지금 계정을 씀)")
     s.add_argument("--no-claude", action="store_true"); s.add_argument("--no-codex", action="store_true")
     s.set_defaults(fn=cmd_setup)
     s = sub.add_parser("guide", help="AI 에이전트용 사용 규칙"); s.set_defaults(fn=cmd_guide)

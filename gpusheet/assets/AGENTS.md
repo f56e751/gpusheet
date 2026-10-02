@@ -13,7 +13,9 @@ gpusheet status --json                # 전체 현황 (누가 무엇을 예약�
 gpusheet mine --json                  # 내 예약
 gpusheet reserve 12:1 --yes           # 예약 (오늘). 내일 칸은 --tmr. "12:1" = 12번 서버의 1번 GPU
 gpusheet release 12:1                 # 해제. 내 예약 전부는 --all
+gpusheet servers --json               # 서버별 접속 주소(host)·SSH 명령
 ```
+`free`/`status` 의 JSON 에도 각 GPU 가 있는 서버의 접속 주소 `host` 가 들어 있다.
 `state` 값: `FREE`(비어 있음) · `RESERVED`(예약·사용 중) · `RESERVED_IDLE`(예약됐지만 유휴) ·
 `IN_USE_UNRESERVED`(예약 없이 누가 사용 중) · `DOWN`(응답 없음)
 
@@ -29,7 +31,9 @@ gpusheet release 12:1                 # 해제. 내 예약 전부는 --all
    export CUDA_DEVICE_ORDER=PCI_BUS_ID CUDA_VISIBLE_DEVICES=<예약한 GPU 번호>
    ```
    `CUDA_DEVICE_ORDER=PCI_BUS_ID` 가 없으면 CUDA 가 순서를 다르게 매겨 **남의 GPU 에서 돌 수 있다.**
-5. 예약한 GPU 가 **다른 서버**에 있으면 그 서버로 SSH 해서 실행한다. 지금 서버의 GPU 를 대신 쓰지 않는다.
+5. 예약한 GPU 가 **다른 서버**에 있으면 그 서버로 SSH 해서 실행한다(`host` 값 사용, 예약 결과에도 SSH 명령이 나온다).
+   지금 서버의 GPU 를 대신 쓰지 않는다. SSH 명령에 `<서버계정>` 이 나오면 계정을 추측하지 말고 사용자에게 묻는다
+   (`gpusheet setup --ssh-user 계정` 으로 등록 가능). SSH 가 안 되면 사용자에게 알리고 임의로 다른 방법을 쓰지 않는다.
 6. 작업이 끝나면 `gpusheet release` 로 해제한다. 한 시간 넘게 GPU 를 안 쓰면 예약이 자동 해제되므로,
    GPU 를 오래 안 쓰는 단계(긴 전처리 등)가 있으면 사용자에게 알린다.
 7. 예약은 오늘·내일 칸만 가능하다.
