@@ -288,7 +288,7 @@ def cmd_mine(a):
     limit = info.get("max_per_person") if st == 200 and isinstance(info, dict) else None
     if a.json:
         return emit({"name": name, "reservations": res, "max_per_person": limit})
-    print(f"{name}" + (f"  —  1인당 날짜별 최대 {limit}장" if limit else ""))
+    print(f"{name}" + (f"  —  1인당 날짜별 최대 {limit}장, 5090 은 2장으로 계산" if limit else ""))
     for d, ko in DATES.items():
         print(f"  {ko}: " + (", ".join(res[d]) if res[d] else "없음"))
 
