@@ -28,6 +28,7 @@ import subprocess
 import sys
 import unicodedata
 import urllib.error
+import urllib.parse
 import urllib.request
 
 from . import __version__
@@ -88,6 +89,18 @@ def my_name(required=True):
 
 
 # ======================================================================= 통신
+_CMD = "?"   # 사용 통계용: 지금 실행 중인 명령과 옵션 (main 에서 채움)
+
+
+def agent():
+    """누가 실행했나 (사용 통계용 추정): Claude Code / Codex / 사람(터미널) / 스크립트"""
+    if os.environ.get("CLAUDECODE"):
+        return "claude-code"
+    if any(k.startswith("CODEX_") for k in os.environ):
+        return "codex"
+    return "terminal" if sys.stdout.isatty() else "script"
+
+
 def http(method, path, body=None, url=None):
     data = json.dumps(body, ensure_ascii=False).encode() if body is not None else None
     req = urllib.request.Request((url or base_url()) + path, data=data, method=method, headers={
@@ -95,6 +108,9 @@ def http(method, path, body=None, url=None):
         "X-Gpusheet-Client": f"gpusheet/{__version__}",
         "X-Gpusheet-Host": socket.gethostname(),
         "X-Gpusheet-Account": getpass.getuser(),
+        "X-Gpusheet-Command": _CMD,
+        "X-Gpusheet-Agent": agent(),
+        "X-Gpusheet-Name": urllib.parse.quote(my_name(required=False) or ""),   # 머리말은 ASCII 만 → 퍼센트 인코딩
     })
     try:
         with OPENER.open(req, timeout=10) as r:
@@ -524,6 +540,9 @@ def main(argv=None):
     if not getattr(a, "fn", None):
         p.print_help()
         return
+    global _CMD
+    flags = [k for k in ("json", "yes", "tmr", "here", "all") if getattr(a, k, False)]
+    _CMD = " ".join([a.cmd] + ["--" + f for f in flags])
     a.fn(a)
 
 

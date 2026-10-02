@@ -94,4 +94,5 @@ CLI 에는 서버 주소가 들어 있지 않습니다. 다음 순서로 찾습�
 | `PUT /set_user` | `{"user": "이름" or null, "device_ids": [{"hostname": "gpu6", "index": "0"}], "date": "today"/"tmr"}` |
 | `GET /names` | 명단 `{"names": [...], "max_per_person": N}` |
 
-CLI 는 `X-Gpusheet-Client/Host/Account` 머리말로 출처를 알립니다 (서버 로그 추적용).
+CLI 는 `X-Gpusheet-Client/Host/Account/Command/Agent/Name` 머리말로 출처를 알립니다 (서버의 사용 통계·로그용).
+`Agent` 는 실행 주체 추정값(`claude-code`·`codex`·`terminal`·`script`)이고, `Name` 은 등록된 이름을 퍼센트 인코딩한 값입니다.
