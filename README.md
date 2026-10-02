@@ -35,7 +35,7 @@ pip install git+https://github.com/f56e751/gpusheet
 
 ```bash
 gpusheet setup                      # 시트에 쓰는 이름 등록 + Claude/Codex 규칙 설치
-gpusheet setup --url <서버 주소> --ssh-user <서버 계정>   # 노트북 등 (주소가 미리 설정돼 있지 않은 곳)
+gpusheet setup --url <서버 주소>     # 주소가 서버에 미리 설정돼 있지 않은 경우 (노트북 등)
 ```
 
 `setup` 은 다음을 합니다.
@@ -52,7 +52,7 @@ gpusheet setup --url <서버 주소> --ssh-user <서버 계정>   # 노트북 �
 | `gpusheet mine` | 내 예약 |
 | `gpusheet reserve 12:1 [--tmr] [--yes]` | 예약. `12:1` = 12번 서버의 1번 GPU |
 | `gpusheet release 12:1 [--tmr]` / `--all` | 해제 (본인 예약만) |
-| `gpusheet servers` | 서버 목록: 접속 주소·SSH 명령·GPU 구성 (주소는 시트 서버에서 받아옴) |
+| `gpusheet servers` | 서버 목록: IP·GPU 구성 (IP 는 시트 서버에서 받아옴) |
 | `gpusheet guide` | AI 에이전트용 사용 규칙 |
 
 - 모든 조회 명령에 `--json` 을 붙이면 기계가 읽기 좋은 출력이 나옵니다.
