@@ -18,6 +18,7 @@
 """
 import argparse
 import difflib
+import errno
 import getpass
 import json
 import os
@@ -467,7 +468,35 @@ def cmd_guide(a):
 
 
 # ======================================================================= 진입점
+class _PipeSafe:
+    """출력을 받던 쪽이 먼저 닫아도(`| head` 등) 명령은 끝까지 하고 종료 코드를 지킨다.
+    (리눅스는 BrokenPipeError, Windows 는 OSError errno 22 로 온다)"""
+    def __init__(self, stream):
+        self._s, self._closed = stream, False
+
+    def _guard(self, fn, *args):
+        if self._closed:
+            return None
+        try:
+            return fn(*args)
+        except OSError as e:
+            if isinstance(e, BrokenPipeError) or e.errno in (errno.EPIPE, errno.EINVAL):
+                self._closed = True
+                return None
+            raise
+
+    def write(self, data):
+        return self._guard(self._s.write, data)
+
+    def flush(self):
+        return self._guard(self._s.flush)
+
+    def __getattr__(self, name):
+        return getattr(self._s, name)
+
+
 def main(argv=None):
+    sys.stdout = _PipeSafe(sys.stdout)
     p = argparse.ArgumentParser(prog="gpusheet", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--version", action="version", version=f"gpusheet {__version__}")
     sub = p.add_subparsers(dest="cmd")
